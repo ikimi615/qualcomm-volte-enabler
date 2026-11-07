@@ -14,7 +14,14 @@ PORT = 9999
 
 class DiagClient:
     def __init__(self, port=PORT):
-        self.s = socket.create_connection(("127.0.0.1", port), timeout=60)
+        try:
+            self.s = socket.create_connection(("127.0.0.1", port), timeout=60)
+        except ConnectionRefusedError:
+            print(f"[!] Error: Cannot connect to 127.0.0.1:{port}.")
+            print("[!] Please ensure 'qcom-efsd' is running on device and forwarded via:")
+            print(f"    adb forward tcp:{port} localabstract:qcom_efsd_dbg")
+            print("[!] Alternatively, run the all-in-one script: bash scripts/auto_enable_volte.sh")
+            sys.exit(1)
         self.buf = b""
 
     def cmd(self, **kw):
@@ -38,7 +45,8 @@ def main():
     # 1. Read IMS_enable
     r = c.cmd(cmd="read", path="/nv/item_files/ims/IMS_enable")
     val = base64.b64decode(r.get("data", "")) if r.get("data") else b""
-    print(f"[!] /nv/item_files/ims/IMS_enable: len={len(val)}, hex={val.hex()} ({'ENABLED' if val == b'\\x01' else 'DISABLED'})")
+    status_str = "ENABLED (0x01)" if val == b"\x01" else f"DISABLED ({val.hex() or 'empty'})"
+    print(f"[!] /nv/item_files/ims/IMS_enable: {status_str}")
 
     # 2. Backup essential dirs
     for d in ["/nv/item_files/ims", "/policyman", "/nv/item_files/mcfg"]:
@@ -52,12 +60,12 @@ def main():
                 data = base64.b64decode(fr.get("data", ""))
                 with open(os.path.join(local_subdir, e["name"]), "wb") as f:
                     f.write(data)
-            except Exception as err:
+            except Exception:
                 pass
         print(f"[*] Backed up {d} -> {local_subdir}")
 
     c.cmd(cmd="close")
-    print("[+] Inspection and backup completed.")
+    print(f"[+] Inspection and backup completed successfully to: {backup_dir}")
 
 if __name__ == "__main__":
     main()

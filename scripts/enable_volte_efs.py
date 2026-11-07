@@ -13,7 +13,14 @@ PORT = 9999
 
 class DiagClient:
     def __init__(self, port=PORT):
-        self.s = socket.create_connection(("127.0.0.1", port), timeout=60)
+        try:
+            self.s = socket.create_connection(("127.0.0.1", port), timeout=60)
+        except ConnectionRefusedError:
+            print(f"[!] Error: Cannot connect to 127.0.0.1:{port}.")
+            print("[!] Please ensure 'qcom-efsd' is running on device and forwarded via:")
+            print(f"    adb forward tcp:{port} localabstract:qcom_efsd_dbg")
+            print("[!] Alternatively, run the all-in-one script: bash scripts/auto_enable_volte.sh")
+            sys.exit(1)
         self.buf = b""
 
     def cmd(self, **kw):
@@ -33,15 +40,16 @@ def main():
     # Read before
     r = c.cmd(cmd="read", path="/nv/item_files/ims/IMS_enable")
     val = base64.b64decode(r.get("data", "")) if r.get("data") else b""
-    print(f"Current IMS_enable: {val.hex()}")
+    print(f"[*] Current /nv/item_files/ims/IMS_enable value: {val.hex() or 'empty'}")
 
     if val == b"\x01":
-        print("[+] /nv/item_files/ims/IMS_enable is already 0x01 (Enabled).")
+        print("[+] /nv/item_files/ims/IMS_enable is already 0x01 (Hardware IMS Enabled).")
+        c.cmd(cmd="close")
         return
 
     # Disable read-only mode in daemon
     c.cmd(cmd="readonly", on=False)
-    print("[*] Unlocked write access.")
+    print("[*] Unlocked EFS write access.")
 
     # Write 0x01
     w_res = c.cmd(cmd="write", path="/nv/item_files/ims/IMS_enable", data=base64.b64encode(b"\x01").decode(), item=True)
@@ -61,9 +69,10 @@ def main():
 
     c.cmd(cmd="close")
     if val_after == b"\x01":
-        print("[+] SUCCESS: Hardware IMS enabled in modem NV! Please reboot device.")
+        print("[+] SUCCESS: Hardware IMS successfully enabled in modem NV! Please reboot device.")
     else:
         print("[-] FAILED: Value not updated.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

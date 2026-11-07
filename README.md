@@ -1,5 +1,6 @@
 # Qualcomm VoLTE Enabler (No QPST / macOS & Linux Friendly)
 
+[![GitHub Repo](https://img.shields.io/badge/GitHub-ikimi615%2Fqualcomm--volte--enabler-181717.svg?logo=github)](https://github.com/ikimi615/qualcomm-volte-enabler)
 [![Qualcomm](https://img.shields.io/badge/Qualcomm-Snapdragon-blue.svg)](https://www.qualcomm.com/)
 [![Android](https://img.shields.io/badge/Android-Marshmallow%20to%2015-green.svg)](https://source.android.com/)
 [![LineageOS](https://img.shields.io/badge/LineageOS-22.2%20(Android%2015)-orange.svg)](https://lineageos.org/)
@@ -16,6 +17,31 @@
 
 This project was developed and battle-tested on the **BlackBerry Key2 (`athena`, Snapdragon SDM660)** running unofficial **LineageOS 22.2 (Android 15)** after carriers (such as China Unicom, AT&T, and T-Mobile) decommissioned legacy 2G/3G Circuit-Switched (CSFB) fallback networks.
 
+```
+       +-------------------------------------------------------+
+       |           Qualcomm VoLTE Enabler Workflow            |
+       +-------------------------------------------------------+
+                                   |
+                     [ 1. Check Root & Telephony ]
+                                   |
+                [ 2. Push & Run aarch64 qcom-efsd ]
+                                   |
+             [ 3. ADB Forward abstract socket -> :9999 ]
+                                   |
+       +---------------------------+---------------------------+
+       |                                                       |
+[ Inspect & Backup NV ]                                 [ Write EFS NV ]
+/nv/item_files/ims/                                     IMS_enable = 0x01
+/policyman/                                             Commit EFS Journal
+/nv/item_files/mcfg/                                    Relock Read-Only
+       |                                                       |
+       +---------------------------+---------------------------+
+                                   |
+                     [ 4. Reboot Qualcomm Modem ]
+                                   |
+                   [ 5. VoLTE IMS HD Calling OK! ]
+```
+
 ### ❓ The Problem
 When 2G/3G networks are retired:
 1. Devices can still access **4G LTE mobile data**, but all incoming and outgoing **phone calls fail immediately** (dropping to "No Service" or "Call Ended" within 200ms).
@@ -26,67 +52,116 @@ When 2G/3G networks are retired:
 
 ### 🚀 Key Features
 - **Zero Windows / QPST Dependency**: Operates entirely over ADB and Linux/macOS command lines using the DIAG protocol and direct NV item manipulation.
+- **One-Click Automation**: Run `bash scripts/auto_enable_volte.sh` to automatically check root, start the daemon, apply properties, and update baseband NVRAM.
 - **Baseband EFS NVRAM Injection**: Directly flips `/nv/item_files/ims/IMS_enable` to `0x01`.
 - **Carrier Database Sync**: Configures `qcril.db` with correct MBN mapping rules.
-- **Boot Persistence**: Deploys an automated Magisk/KernelSU post-fs-data daemon (`fix_volte.sh`) to lock ICCID cache and persist carrier configs across reboots.
+- **Boot Persistence**: Deploys an automated Magisk/KernelSU post-fs-data daemon to lock ICCID cache and persist carrier configs across reboots.
+- **Antigravity Skill Native**: Drop into `.agents/skills/` or `~/.gemini/config/skills/` to enable your AI coding agent to diagnose and fix VoLTE autonomously.
 
 ### 📋 Prerequisites
 - Rooted Qualcomm Snapdragon device (Magisk, KernelSU, or APatch).
 - USB Debugging enabled via ADB.
-- Python 3.7+ installed on host machine.
+- Python 3.7+ installed on host machine (macOS / Linux / WSL).
 
 ### 🛠️ Quick Start
 
-#### 1. Inspect Current Baseband IMS State
+#### Method A: One-Click Automated Fix (Recommended)
+Connect your rooted Qualcomm phone via USB and simply run:
 ```bash
-python3 scripts/diag_efs_inspect.py
+git clone https://github.com/ikimi615/qualcomm-volte-enabler.git
+cd qualcomm-volte-enabler
+bash scripts/auto_enable_volte.sh
 ```
+Follow the prompt to reboot your phone, and VoLTE will be active.
 
-#### 2. Enable VoLTE & Write IMS Configuration
-```bash
-python3 scripts/enable_volte_efs.py
-```
+#### Method B: Step-by-Step Manual Run
 
-#### 3. Reboot & Verify
-```bash
-adb reboot
-# After reboot:
-bash scripts/verify_volte_status.sh
-```
+1. **Start the baseband DIAG daemon**:
+   ```bash
+   adb push bin/qcom-efsd /data/local/tmp/qcom-efsd
+   adb shell "chmod 755 /data/local/tmp/qcom-efsd"
+   adb shell "su -c 'setsid /data/local/tmp/qcom-efsd -uid 2000 -socket qcom_efsd_dbg &'"
+   adb forward tcp:9999 localabstract:qcom_efsd_dbg
+   ```
+
+2. **Inspect & Backup EFS**:
+   ```bash
+   python3 scripts/diag_efs_inspect.py ./efs_backup
+   ```
+
+3. **Enable Hardware VoLTE**:
+   ```bash
+   python3 scripts/enable_volte_efs.py
+   ```
+
+4. **Reboot and Verify**:
+   ```bash
+   adb reboot
+   # After reboot:
+   bash scripts/verify_volte_status.sh
+   ```
 
 ---
 
 ## 中文说明
 
 ### 📌 项目简介
-**Qualcomm VoLTE Enabler** 是一个面向高通骁龙（Qualcomm Snapdragon）平台的免 QPST、跨平台（支持 macOS 与 Linux）VoLTE 修复工具集与 Antigravity AI Agent 技能库。
+**Qualcomm VoLTE Enabler** 是一个面向高通骁龙（Qualcomm Snapdragon）平台的免 QPST、跨平台（完美支持 macOS 与 Linux）的 VoLTE 修复工具集与 Google Antigravity Agent 技能库。
 
-本项目源于在 **BlackBerry Key2（athena，骁龙 660）** 运行第三方 **LineageOS 22.2（Android 15）** 上的实机调试成果。在全国运营商（如中国联通）大范围清退 2G（GSM）与 3G（WCDMA）网络后，传统电路域回落（CSFB）失效，通过本项目成功恢复了纯 4G LTE 下的高清 VoLTE 通话与 IMS 注册。
+本项目源于在 **BlackBerry Key2（athena，骁龙 660）** 运行第三方 **LineageOS 22.2（Android 15）** 上的实机调试成果。在全国运营商（如中国联通、中国电信、中国移动）大范围清退 2G（GSM）与 3G（WCDMA）网络后，传统电路域回落（CSFB）失效，通过本项目成功恢复了纯 4G LTE 下的高清 VoLTE 通话与 IMS 注册。
 
-### ❓ 解决的问题
+### ❓ 解决的核心痛点
 * 手机能正常使用 4G 移动数据上网，但**完全无法拨打或接听普通电话**（拨号后立即闪退或提示通话结束）。
 * 拨打 `*#*#4636#*#*` 进入手机信息查看：
   * **IMS 状态：未注册**
-  * **LTE 语音通话：不可用 / 不支持该付款方式**
+  * **LTE 语音通话：不可用**（中文系统有时机翻为“不支持该付款方式”）
 * 高通基带硬件底层未开启 IMS 实体支持（`/nv/item_files/ims/IMS_enable = 0x00`）。
 
 ### 🚀 核心原理
-1. **基带 EFS NV 注入**：利用高通 DIAG 协议与 QMI 接口，直接对 modem 分区 NVRAM 写入 `IMS_enable = 0x01`。
+1. **基带 EFS NV 注入**：利用高通 DIAG 协议与 Linux abstract socket，直接对 modem 分区 NVRAM 写入 `IMS_enable = 0x01` 并提交 journal 刷入闪存。
 2. **QCRIL 运营商库规则修正**：在 `/data/vendor/radio/qcril.db` 中绑定运营商（如中国联通 MCC `460` MNC `01`）与 `VoLTE-CU` 基带 MBN 固件映射。
 3. **ICCID 与开机自启守护**：通过 Magisk `post-fs-data.d` 部署开机保护脚本，锁定 SIM 标识缓存（`chattr +i`），防止重启后基带复位。
 
 ### 📦 目录结构
 ```text
 qualcomm-volte-enabler/
-├── README.md                     # 本说明文档
-├── SKILL.md                      # Antigravity Agent Skill 规范文件
+├── README.md                     # 项目说明与中英完整指南
+├── SKILL.md                      # Antigravity Agent Skill 规范配置
+├── LICENSE                       # MIT 开源许可证
+├── bin/
+│   └── qcom-efsd                 # aarch64 Qualcomm DIAG 守护进程独立二进制
 ├── scripts/
-│   ├── diag_efs_inspect.py       # EFS 与 IMS 状态诊断脚本
+│   ├── auto_enable_volte.sh      # 一键全自动激活脚本（包含提权、启动守护、写入NV与清理）
+│   ├── diag_efs_inspect.py       # EFS 与 IMS 状态诊断与备份脚本
 │   ├── enable_volte_efs.py       # EFS 自动写入与 VoLTE 激活脚本
 │   └── verify_volte_status.sh    # 电话与 IMS 注册状态验证脚本
 └── references/
-    └── troubleshooting.md        # 疑难排查与频段冲突解决指南
+    └── troubleshooting.md        # 疑难排查（双卡槽位选择、频段冲突、翻译陷阱等）
 ```
+
+### 🛠️ 快速使用指南
+
+#### 一键自动修复（推荐）
+保持手机开启 USB 调试并连接电脑，确保已获得 Root 权限（Magisk/KernelSU）：
+```bash
+git clone https://github.com/ikimi615/qualcomm-volte-enabler.git
+cd qualcomm-volte-enabler
+bash scripts/auto_enable_volte.sh
+```
+按照终端提示重启手机即可！
+
+#### 验证是否生效
+重启手机后运行：
+```bash
+bash scripts/verify_volte_status.sh
+```
+* 检查输出中的 `notifyFeatureStateChanged, type=MMTEL, state=READY`
+* 手机拨打客服电话（如 `10010`），状态栏全程保持 **LTE / 4G** 图标且语音接通，即证明 VoLTE 激活成功！
 
 ### ⚠️ 免责声明
 本工具涉及对底层高通基带 EFS 分区的读取与写入。在操作前，脚本会自动备份相关 NV 项。请严格按照操作流程执行，作者不对因误操作造成的设备异常负责。
+
+---
+
+## 🌟 Star & Fork
+如果你觉得这个项目对你有帮助，欢迎点击右上角给一个 **Star** ⭐，也欢迎提交 Issue 和 PR！
