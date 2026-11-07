@@ -59,9 +59,18 @@ When 2G/3G networks are retired:
 - **Antigravity Skill Native**: Drop into `.agents/skills/` or `~/.gemini/config/skills/` to enable your AI coding agent to diagnose and fix VoLTE autonomously.
 
 ### 📋 Prerequisites
-- Rooted Qualcomm Snapdragon device (Magisk, KernelSU, or APatch).
+- **Root Access Required**: Magisk, KernelSU, or APatch (UID 0 / `su`).
 - USB Debugging enabled via ADB.
 - Python 3.7+ installed on host machine (macOS / Linux / WSL).
+
+### ❓ FAQ: Can I use this on a non-rooted / stock ROM Key2?
+**No. Root access is strictly required.**
+- **Why Root is mandatory**: Android's Linux kernel and SELinux policies strictly prevent non-root shell (UID 2000) or regular apps from opening `/dev/diag` character devices, writing to baseband NVRAM, or altering `persist.dbg.*` system telephony properties.
+- **Why secret dial codes don't work**: On stock BlackBerry Key2 firmware (Android 8.1), TCL/BlackBerry completely stripped and patched out all Qualcomm engineering dial codes (e.g., `*#*#717717#*#*`). A standard USB DIAG COM port cannot be exposed without root.
+- **What non-rooted users should do**:
+  1. **Recommended Path**: Unlock the bootloader and flash LineageOS + Magisk. Once rooted, this toolkit will fix VoLTE in one click.
+  2. **Stock China Retail Variant (BBF100-4)**: If you are running stock unrooted BBF100-4, ensure the SIM card is in **Slot 1 (primary slot)**, create an APN with name `IMS` and APN type `ims`, and check if `*#*#4636#*#*` allows toggling "VoLTE Provisioned".
+  3. **Stock Overseas Variants (BBF100-2, BBF100-6)**: These firmwares lack domestic carrier VoLTE MBN authorizations in hardware NV. Bootloader unlocking and root are the only reliable way to enable VoLTE.
 
 ### 🛠️ Quick Start
 
@@ -122,10 +131,38 @@ Follow the prompt to reboot your phone, and VoLTE will be active.
 2. **QCRIL 运营商库规则修正**：在 `/data/vendor/radio/qcril.db` 中绑定运营商（如中国联通 MCC `460` MNC `01`）与 `VoLTE-CU` 基带 MBN 固件映射。
 3. **ICCID 与开机自启守护**：通过 Magisk `post-fs-data.d` 部署开机保护脚本，锁定 SIM 标识缓存（`chattr +i`），防止重启后基带复位。
 
+### 📋 运行前置要求
+* **必须具备 Root 权限**：已安装 Magisk、KernelSU 或 APatch（获得 `su` 权限）。
+* 电脑端已安装 ADB 工具并已开启手机“USB 调试”。
+* 电脑端具备 Python 3.7+ 环境（macOS、Linux 或 Windows WSL 均可）。
+
+---
+
+### ❓ 常见问题：非 Root 的 Key2 原厂系统是否可以使用本项目？
+
+**答：不能直接使用。本项目严格依赖 Root 权限。**
+
+#### 为什么非 Root 系统无法运行？
+1. **安全权限限制**：Android 内核与 SELinux 强制隔离，非 Root 用户（UID 2000）或普通 App **绝对无权打开 `/dev/diag` 字符设备**，也无法改写 `persist.dbg.*` 等系统级电话属性。
+2. **原厂暗码被屏蔽**：在其他普通高通机型上，未 Root 偶尔可通过拨号盘工程暗码（如 `*#*#717717#*#*`）开启 USB 诊断 COM 口。但 BlackBerry Key2 的官方原厂固件（Android 8.1）经过了黑莓与 TCL 的深度安全加固，**彻底封堵了所有的免 Root 开启 DIAG 端口的暗码**，电脑端无法直接识别出 Diagnostic 端口。
+
+#### 非 Root 的 Key2 用户该如何解决？
+1. **推荐路线（最彻底）**：
+   * 将 Key2 解锁 Bootloader 并刷入 **LineageOS（Android 15）+ Magisk Root**。
+   * 取得 Root 权限后，直接运行本项目的一键脚本，即可立刻点亮纯 4G LTE VoLTE 高清通话。
+2. **国行零售版（BBF100-4）原厂系统尝试**：
+   * 国行底层内置了联通/电信/移动的基础 MBN，请务必将 SIM 卡插在**卡槽 1（主卡槽，靠近内侧的卡位）**；
+   * 在系统设置中手动添加一条 APN：名称填 `IMS`，APN 填 `ims`，APN 类型填 `ims`，协议选 `IPv4/IPv6`；
+   * 拨打 `*#*#4636#*#*` 进入手机信息，检查“VoLTE 配置的标记”能否开启，开启飞行模式 10 秒后关闭尝试激活。
+3. **海外版（美版 BBF100-2、港版 BBF100-6 等）**：
+   * 海外版官方固件硬件 NVRAM 默认未配置中国运营商 VoLTE，目前**唯一可行的途径就是解锁 Bootloader 并获取 Root 权限后使用本项目写入**。
+
+---
+
 ### 📦 目录结构
 ```text
 qualcomm-volte-enabler/
-├── README.md                     # 项目说明与中英完整指南
+├── README.md                     # 项目说明、中英完整指南与 FAQ
 ├── SKILL.md                      # Antigravity Agent Skill 规范配置
 ├── LICENSE                       # MIT 开源许可证
 ├── bin/

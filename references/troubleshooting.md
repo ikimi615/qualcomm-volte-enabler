@@ -22,3 +22,7 @@ If the underlying Qualcomm modem's non-volatile memory has `/nv/item_files/ims/I
 ## 4. Checking Carrier MBN Profiles in EFS
 Check `/nv/item_files/mcfg/mcfg_sel_db.xml`:
 Search for your MCC/MNC (e.g. `460-01` for China Unicom) to ensure the hardware supports `volte="true"`. Most modern regional firmwares include China Mobile (CMCC), China Unicom (CU), and China Telecom (CT) MBN profiles out of the box.
+
+## 5. Non-Root vs Rooted Device Feasibility
+- **Rooted Devices**: Direct access to `/dev/diag` enables automated, 100% reliable hardware NV editing and carrier config enforcement without Windows or QPST.
+- **Non-Rooted Stock Devices**: Android SELinux blocks userspace access to `/dev/diag`. On the BlackBerry Key2 stock firmware, engineering dial codes to switch USB mode to diagnostic COM ports are disabled. Unlocking the bootloader and obtaining root access is the only clean, verified method to repair VoLTE on SDM660 devices affected by 2G/3G network retirement.
